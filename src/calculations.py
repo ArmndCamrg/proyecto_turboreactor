@@ -200,48 +200,66 @@ def build_results_table(
     temperature_k: float,
     gas_constant: float,
     gamma: float,
-    mach_number: float,
     mass_flow_rate: float,
+    **_kwargs,
 ) -> pd.DataFrame:
-    """Build a results table with thermodynamic properties across a pressure range.
+    """Build a results table with isentropic thermodynamic properties across a pressure range.
 
-    Uses a constant temperature, Mach number, and mass flow rate at each pressure
-    point to compute density, velocity, and flow area.
+    Treats inlet_pressure_kpa as stagnation pressure P0 and each point in the
+    generated range as a local static pressure. Mach number and all derived
+    quantities are computed per point from the pressure ratio.
+
+    At the inlet point (static == total pressure) Mach=0, velocity=0 and
+    flow_area_m2 is NaN because the cross-section is physically undefined.
 
     Args:
-        inlet_pressure_kpa: upstream pressure [kPa]. Must be > outlet.
-        outlet_pressure_kpa: downstream pressure [kPa].
+        inlet_pressure_kpa: stagnation pressure P0 [kPa]. Must be > outlet.
+        outlet_pressure_kpa: exit static pressure [kPa].
         num_points: number of evenly spaced pressure points. Must be > 1.
-        temperature_k: static temperature [K]. Must be > 0.
+        temperature_k: stagnation temperature T0 [K]. Must be > 0.
         gas_constant: specific gas constant R [J/(kg·K)]. Must be > 0.
         gamma: specific heat ratio. Must be > 1.
-        mach_number: local Mach number. Must be >= 0.
         mass_flow_rate: mass flow rate [kg/s]. Must be > 0.
+        **_kwargs: absorbs legacy keyword arguments (e.g. mach_number) for
+            backward compatibility.
 
     Returns:
-        DataFrame with columns: pressure_kpa, temperature_k, speed_of_sound_m_s,
-        velocity_m_s, mach_number, density_kg_m3, flow_area_m2.
+        DataFrame with columns: pressure_kpa, static_temperature_k,
+        speed_of_sound_m_s, velocity_m_s, mach_number, density_kg_m3,
+        flow_area_m2.
     """
     pressures = generate_pressure_range(inlet_pressure_kpa, outlet_pressure_kpa, num_points)
-    a = calculate_speed_of_sound(gamma, gas_constant, temperature_k)
-    velocity = calculate_velocity_from_mach(mach_number, a)
 
+    machs = np.array([
+        calculate_mach_from_pressure_ratio(inlet_pressure_kpa, p, gamma)
+        for p in pressures
+    ])
+    static_temps = np.array([
+        calculate_static_temperature(temperature_k, gamma, m) for m in machs
+    ])
+    speeds_of_sound = np.array([
+        calculate_speed_of_sound(gamma, gas_constant, t) for t in static_temps
+    ])
+    velocities = np.array([
+        calculate_velocity_from_temperature(gamma, gas_constant, temperature_k, t)
+        if t < temperature_k else 0.0
+        for t in static_temps
+    ])
     densities = np.array([
-        calculate_density(p, temperature_k, gas_constant) for p in pressures
+        calculate_density(p, t, gas_constant)
+        for p, t in zip(pressures, static_temps)
     ])
     flow_areas = np.array([
-        calculate_flow_area(mass_flow_rate, rho, velocity) for rho in densities
-    ])
-    mach_numbers = np.array([
-        calculate_mach_number(velocity, a) for _ in pressures
+        calculate_flow_area(mass_flow_rate, rho, v) if v > 0.0 else np.nan
+        for rho, v in zip(densities, velocities)
     ])
 
     return pd.DataFrame({
         "pressure_kpa": pressures,
-        "temperature_k": temperature_k,
-        "speed_of_sound_m_s": a,
-        "velocity_m_s": velocity,
-        "mach_number": mach_numbers,
+        "static_temperature_k": static_temps,
+        "speed_of_sound_m_s": speeds_of_sound,
+        "velocity_m_s": velocities,
+        "mach_number": machs,
         "density_kg_m3": densities,
         "flow_area_m2": flow_areas,
     })

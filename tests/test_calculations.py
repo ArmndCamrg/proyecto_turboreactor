@@ -367,13 +367,12 @@ RESULTS_TABLE_DEFAULTS = dict(
     temperature_k=288.15,
     gas_constant=287.05,
     gamma=1.4,
-    mach_number=0.8,
     mass_flow_rate=2.0,
 )
 
 EXPECTED_COLUMNS = {
     "pressure_kpa",
-    "temperature_k",
+    "static_temperature_k",
     "speed_of_sound_m_s",
     "velocity_m_s",
     "mach_number",
@@ -394,10 +393,20 @@ def test_results_table_columns():
     assert set(df.columns) == EXPECTED_COLUMNS
 
 
-def test_results_table_no_nulls():
-    """DataFrame must contain no NaN or null values."""
+def test_results_table_no_nulls_except_flow_area():
+    """All columns except flow_area_m2 must contain no NaN values.
+
+    flow_area_m2 is NaN at the inlet point where Mach=0 and velocity=0.
+    """
     df = build_results_table(**RESULTS_TABLE_DEFAULTS)
-    assert not df.isnull().any().any()
+    cols = [c for c in df.columns if c != "flow_area_m2"]
+    assert not df[cols].isnull().any().any()
+
+
+def test_results_table_flow_area_nan_at_inlet():
+    """flow_area_m2 must be NaN at the first row where Mach=0."""
+    df = build_results_table(**RESULTS_TABLE_DEFAULTS)
+    assert np.isnan(df["flow_area_m2"].iloc[0])
 
 
 def test_results_table_first_pressure():
@@ -410,6 +419,13 @@ def test_results_table_last_pressure():
     """Last row pressure must equal outlet_pressure_kpa."""
     df = build_results_table(**RESULTS_TABLE_DEFAULTS)
     assert df["pressure_kpa"].iloc[-1] == pytest.approx(RESULTS_TABLE_DEFAULTS["outlet_pressure_kpa"])
+
+
+def test_results_table_mach_increases_as_pressure_decreases():
+    """Mach number must be strictly increasing as static pressure decreases."""
+    df = build_results_table(**RESULTS_TABLE_DEFAULTS)
+    machs = df["mach_number"].to_numpy()
+    assert all(machs[i] < machs[i + 1] for i in range(len(machs) - 1))
 
 
 # ── calculate_cp_air ──────────────────────────────────────────────────────────
