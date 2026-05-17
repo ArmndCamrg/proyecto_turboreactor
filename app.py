@@ -14,47 +14,63 @@ st.set_page_config(
 )
 
 st.title("Turbofan Nozzle — Thermodynamic Properties")
-st.caption("1-D isentropic flow analysis · MVP local")
+st.caption(
+    "Análisis isentrópico 1-D · Mach calculado dinámicamente a partir de "
+    "la relación P₀/P en cada punto · MVP local"
+)
 
 # ── Sidebar: inputs ───────────────────────────────────────────────────────────
 
 with st.sidebar:
-    st.header("Pressure Range")
+    st.header("Rango de Presión")
     inlet_pressure_kpa = st.number_input(
-        "Inlet Pressure [kPa]", min_value=0.1, max_value=10_000.0,
+        "Presión total de entrada P₀ [kPa]",
+        min_value=0.1, max_value=10_000.0,
         value=1400.0, step=10.0,
+        help="Presión de remanso aguas arriba de la tobera.",
     )
     outlet_pressure_kpa = st.number_input(
-        "Outlet Pressure [kPa]", min_value=0.1, max_value=10_000.0,
+        "Presión estática de salida [kPa]",
+        min_value=0.1, max_value=10_000.0,
         value=101.325, step=1.0,
+        help="Presión ambiente o de descarga.",
     )
     num_points = st.number_input(
-        "Number of Points", min_value=2, max_value=100_000,
+        "Número de puntos",
+        min_value=2, max_value=100_000,
         value=12986, step=1,
     )
 
-    st.header("Flow Conditions")
+    st.header("Condiciones de Flujo")
     temperature_k = st.number_input(
-        "Temperature [K]", min_value=1.0, max_value=5000.0,
+        "Temperatura total de entrada T₀ [K]",
+        min_value=1.0, max_value=5000.0,
         value=1200.0, step=10.0,
+        help="Temperatura de remanso aguas arriba.",
     )
     mass_flow_rate = st.number_input(
-        "Mass Flow Rate [kg/s]", min_value=0.001, max_value=10_000.0,
+        "Gasto másico ṁ [kg/s]",
+        min_value=0.001, max_value=10_000.0,
         value=250.0, step=1.0,
     )
-    mach_number = st.number_input(
-        "Mach Number", min_value=0.0, max_value=10.0,
-        value=0.3, step=0.01, format="%.3f",
-    )
 
-    st.header("Gas Properties")
+    st.header("Propiedades del Gas")
     gamma = st.number_input(
-        "Specific Heat Ratio γ", min_value=1.01, max_value=2.0,
+        "Razón de calores específicos γ",
+        min_value=1.01, max_value=2.0,
         value=1.33, step=0.01, format="%.3f",
+        help="Cp/Cv — usar ~1.33 para gases de combustión, 1.4 para aire.",
     )
     gas_constant = st.number_input(
-        "Gas Constant R [J/(kg·K)]", min_value=1.0, max_value=1000.0,
+        "Constante específica del gas R [J/(kg·K)]",
+        min_value=1.0, max_value=1000.0,
         value=287.0, step=1.0,
+    )
+
+    st.info(
+        "El número de Mach se calcula automáticamente en cada punto "
+        "mediante la relación isentrópica P₀/P.",
+        icon="ℹ",
     )
 
     run = st.button("Calcular", type="primary", use_container_width=True)
@@ -70,26 +86,25 @@ if run:
             temperature_k=temperature_k,
             gas_constant=gas_constant,
             gamma=gamma,
-            mach_number=mach_number,
             mass_flow_rate=mass_flow_rate,
         )
 
         # ── Metrics ───────────────────────────────────────────────────────────
         col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Velocidad [m/s]", f"{df['velocity_m_s'].iloc[0]:.2f}")
-        col2.metric("Mach promedio", f"{df['mach_number'].mean():.4f}")
+        col1.metric("Mach máximo",             f"{df['mach_number'].max():.4f}")
+        col2.metric("Velocidad máxima [m/s]",  f"{df['velocity_m_s'].max():.2f}")
         col3.metric("Densidad inicial [kg/m³]", f"{df['density_kg_m3'].iloc[0]:.4f}")
-        col4.metric("Área final [m²]", f"{df['flow_area_m2'].iloc[-1]:.6f}")
+        col4.metric("Área final [m²]",          f"{df['flow_area_m2'].iloc[-1]:.6f}")
 
         st.divider()
 
         # ── Table preview ─────────────────────────────────────────────────────
-        st.subheader("Primeras filas del resultado")
+        st.subheader("Vista previa de resultados")
         st.dataframe(df.head(20), use_container_width=True)
 
         # ── CSV download ──────────────────────────────────────────────────────
         st.download_button(
-            label="Descargar CSV",
+            label="Descargar CSV completo",
             data=df.to_csv(index=False).encode("utf-8"),
             file_name="turbofan_nozzle_results.csv",
             mime="text/csv",
@@ -99,13 +114,34 @@ if run:
         st.divider()
 
         # ── Charts ────────────────────────────────────────────────────────────
-        st.subheader("Gráficas")
+        st.subheader("Perfiles termodinámicos a lo largo de la tobera")
 
         charts = [
-            ("velocity_m_s",    "Velocidad [m/s]",      "Presión vs Velocidad"),
-            ("mach_number",     "Número de Mach",       "Presión vs Mach"),
-            ("density_kg_m3",   "Densidad [kg/m³]",     "Presión vs Densidad"),
-            ("flow_area_m2",    "Área de flujo [m²]",   "Presión vs Área de flujo"),
+            (
+                "velocity_m_s",
+                "Velocidad [m/s]",
+                "Presión estática vs Velocidad de flujo",
+            ),
+            (
+                "mach_number",
+                "Número de Mach [ ]",
+                "Presión estática vs Número de Mach (isentrópico)",
+            ),
+            (
+                "static_temperature_k",
+                "Temperatura estática [K]",
+                "Presión estática vs Temperatura estática",
+            ),
+            (
+                "density_kg_m3",
+                "Densidad [kg/m³]",
+                "Presión estática vs Densidad del gas",
+            ),
+            (
+                "flow_area_m2",
+                "Área de flujo [m²]",
+                "Presión estática vs Área transversal de flujo",
+            ),
         ]
 
         col_a, col_b = st.columns(2)
