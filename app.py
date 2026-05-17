@@ -1,11 +1,37 @@
-"""Turbofan Nozzle Thermodynamic Calculator — Streamlit MVP."""
+"""Calculadora de propiedades termodinámicas para toberas de turbofán — MVP local.
+
+Interfaz Streamlit que implementa un análisis isentrópico 1-D de una tobera.
+El usuario especifica las condiciones de remanso y las propiedades del gas;
+la aplicación calcula el número de Mach variable en cada punto a partir de
+la razón de presiones P₀/P y presenta los perfiles termodinámicos resultantes.
+
+Modelo físico
+-------------
+- Flujo isentrópico 1-D estacionario.
+- Gas caloricamente perfecto (γ y R constantes).
+- Mach calculado dinámicamente: M = f(P₀/P, γ), sin valor fijo de usuario.
+- Temperatura estática: T = T₀ / [1 + (γ-1)/2 · M²].
+- Velocidad: V = √[2γR(T₀-T)/(γ-1)].
+- Densidad: ρ = P/(RT)  (ley del gas ideal).
+- Área transversal: A = ṁ/(ρV)  (ecuación de continuidad).
+
+Entradas del usuario
+--------------------
+- P₀ [kPa] : presión de remanso en la entrada.
+- P_salida [kPa] : presión estática en la sección de salida (contrapresión).
+- T₀ [K] : temperatura de remanso en la entrada.
+- ṁ [kg/s] : gasto másico (constante a lo largo de la tobera).
+- γ [-] : razón de calores específicos del gas.
+- R [J/(kg·K)] : constante específica del gas.
+- N [-] : número de puntos de discretización del rango de presiones.
+"""
 
 import streamlit as st
 
 from src.calculations import build_results_table
 from src.plotting import create_line_chart
 
-# ── Page config ───────────────────────────────────────────────────────────────
+# ── Configuración de página ───────────────────────────────────────────────────
 
 st.set_page_config(
     page_title="Turbofan Nozzle Calculator",
@@ -19,9 +45,13 @@ st.caption(
     "la relación P₀/P en cada punto · MVP local"
 )
 
-# ── Sidebar: inputs ───────────────────────────────────────────────────────────
+# ── Panel lateral: parámetros de entrada ─────────────────────────────────────
 
 with st.sidebar:
+    # --- Rango de presiones ---------------------------------------------------
+    # P₀ es la presión de remanso (condición aguas arriba).
+    # P_salida es la presión estática en la descarga (contrapresión).
+    # La razón P₀/P_local en cada punto determina el Mach local.
     st.header("Rango de Presión")
     inlet_pressure_kpa = st.number_input(
         "Presión total de entrada P₀ [kPa]",
@@ -41,6 +71,9 @@ with st.sidebar:
         value=12986, step=1,
     )
 
+    # --- Condiciones de flujo -------------------------------------------------
+    # T₀ es la temperatura de remanso; se conserva a lo largo del flujo isentrópico.
+    # ṁ es el gasto másico; se conserva por la ecuación de continuidad.
     st.header("Condiciones de Flujo")
     temperature_k = st.number_input(
         "Temperatura total de entrada T₀ [K]",
@@ -54,6 +87,10 @@ with st.sidebar:
         value=250.0, step=1.0,
     )
 
+    # --- Propiedades del gas --------------------------------------------------
+    # γ = Cp/Cv: para gases de combustión calientes se usa ~1.33;
+    #            para aire a temperatura ambiente se usa 1.4.
+    # R: constante específica del gas; para aire R ≈ 287 J/(kg·K).
     st.header("Propiedades del Gas")
     gamma = st.number_input(
         "Razón de calores específicos γ",
@@ -67,6 +104,7 @@ with st.sidebar:
         value=287.0, step=1.0,
     )
 
+    # Nota informativa: el Mach no es un parámetro de entrada en este modelo
     st.info(
         "El número de Mach se calcula automáticamente en cada punto "
         "mediante la relación isentrópica P₀/P.",
@@ -75,10 +113,11 @@ with st.sidebar:
 
     run = st.button("Calcular", type="primary", use_container_width=True)
 
-# ── Main area ─────────────────────────────────────────────────────────────────
+# ── Área principal: resultados ────────────────────────────────────────────────
 
 if run:
     try:
+        # Cálculo del DataFrame con todos los perfiles termodinámicos
         df = build_results_table(
             inlet_pressure_kpa=inlet_pressure_kpa,
             outlet_pressure_kpa=outlet_pressure_kpa,
@@ -89,7 +128,9 @@ if run:
             mass_flow_rate=mass_flow_rate,
         )
 
-        # ── Metrics ───────────────────────────────────────────────────────────
+        # ── Métricas de resumen ───────────────────────────────────────────────
+        # Se muestran los valores máximos de Mach y velocidad (en la sección
+        # de salida donde la presión es mínima) y las condiciones en la entrada.
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("Mach máximo",             f"{df['mach_number'].max():.4f}")
         col2.metric("Velocidad máxima [m/s]",  f"{df['velocity_m_s'].max():.2f}")
@@ -98,11 +139,13 @@ if run:
 
         st.divider()
 
-        # ── Table preview ─────────────────────────────────────────────────────
+        # ── Vista previa de la tabla de resultados ────────────────────────────
+        # Se muestran las primeras 20 filas; el CSV completo está disponible
+        # con el botón de descarga.
         st.subheader("Vista previa de resultados")
         st.dataframe(df.head(20), use_container_width=True)
 
-        # ── CSV download ──────────────────────────────────────────────────────
+        # ── Descarga del CSV completo ─────────────────────────────────────────
         st.download_button(
             label="Descargar CSV completo",
             data=df.to_csv(index=False).encode("utf-8"),
@@ -113,7 +156,10 @@ if run:
 
         st.divider()
 
-        # ── Charts ────────────────────────────────────────────────────────────
+        # ── Perfiles termodinámicos ───────────────────────────────────────────
+        # Cada gráfica muestra cómo varía una propiedad termodinámica conforme
+        # la presión estática disminuye (gas expandiéndose a través de la tobera).
+        # El eje x es la presión estática local P [kPa].
         st.subheader("Perfiles termodinámicos a lo largo de la tobera")
 
         charts = [
@@ -144,6 +190,7 @@ if run:
             ),
         ]
 
+        # Disposición en dos columnas para aprovechar el layout ancho
         col_a, col_b = st.columns(2)
         for i, (y_col, y_label, title) in enumerate(charts):
             fig = create_line_chart(df, "pressure_kpa", y_col, title, y_label)
@@ -151,14 +198,16 @@ if run:
             target_col.plotly_chart(fig, use_container_width=True)
 
     except ValueError as exc:
+        # Errores de validación de parámetros (p. ej. P_salida > P₀)
         st.error(f"Error en los parámetros de entrada: {exc}")
     except Exception as exc:
+        # Cualquier error inesperado en el cálculo
         st.error(f"Error inesperado: {exc}")
 
 else:
     st.info("Configura los parámetros en el panel lateral y presiona **Calcular**.")
 
-# ── Footer ────────────────────────────────────────────────────────────────────
+# ── Pie de página ─────────────────────────────────────────────────────────────
 
 st.divider()
 st.caption("proyecto_turboreactor · MVP · local only")
