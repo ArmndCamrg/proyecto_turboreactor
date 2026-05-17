@@ -3,6 +3,7 @@
 import streamlit as st
 
 from src.calculations import build_results_table
+from src.plotting import create_line_chart
 
 # ── Page config ───────────────────────────────────────────────────────────────
 
@@ -94,6 +95,24 @@ if run:
             mime="text/csv",
             use_container_width=True,
         )
+
+        st.divider()
+
+        # ── Charts ────────────────────────────────────────────────────────────
+        st.subheader("Gráficas")
+
+        charts = [
+            ("velocity_m_s",    "Velocidad [m/s]",      "Presión vs Velocidad"),
+            ("mach_number",     "Número de Mach",       "Presión vs Mach"),
+            ("density_kg_m3",   "Densidad [kg/m³]",     "Presión vs Densidad"),
+            ("flow_area_m2",    "Área de flujo [m²]",   "Presión vs Área de flujo"),
+        ]
+
+        col_a, col_b = st.columns(2)
+        for i, (y_col, y_label, title) in enumerate(charts):
+            fig = create_line_chart(df, "pressure_kpa", y_col, title, y_label)
+            target_col = col_a if i % 2 == 0 else col_b
+            target_col.plotly_chart(fig, use_container_width=True)
 
     except ValueError as exc:
         st.error(f"Error en los parámetros de entrada: {exc}")

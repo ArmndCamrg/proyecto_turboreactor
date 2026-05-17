@@ -3,6 +3,8 @@
 from typing import Optional
 import numpy as np
 import matplotlib.pyplot as plt
+import plotly.express as px
+import plotly.graph_objects as go
 from matplotlib.figure import Figure
 
 from src.calculations import NozzleResults
@@ -62,6 +64,38 @@ def plot_temperature_profile(
         Matplotlib Figure.
     """
     pass
+
+
+def create_line_chart(
+    df,
+    x_column: str,
+    y_column: str,
+    title: str,
+    y_axis_title: str,
+) -> go.Figure:
+    """Create a Plotly line chart from a DataFrame.
+
+    Args:
+        df: pandas DataFrame containing the data.
+        x_column: column name for the x-axis. Must exist in df.
+        y_column: column name for the y-axis. Must exist in df.
+        title: chart title.
+        y_axis_title: label for the y-axis.
+
+    Returns:
+        Plotly Figure.
+
+    Raises:
+        ValueError: if x_column or y_column is not found in df.
+    """
+    if x_column not in df.columns:
+        raise ValueError(f"Column '{x_column}' not found in DataFrame.")
+    if y_column not in df.columns:
+        raise ValueError(f"Column '{y_column}' not found in DataFrame.")
+
+    fig = px.line(df, x=x_column, y=y_column, title=title)
+    fig.update_layout(xaxis_title=x_column, yaxis_title=y_axis_title)
+    return fig
 
 
 def plot_results_summary(results: NozzleResults) -> Figure:
