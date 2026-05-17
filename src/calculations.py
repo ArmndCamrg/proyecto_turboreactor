@@ -337,6 +337,41 @@ def calculate_velocity_from_temperature(
     return math.sqrt(2.0 * gamma * gas_constant * delta_t / (gamma - 1.0))
 
 
+def calculate_mach_from_pressure_ratio(
+    total_pressure_kpa: float,
+    static_pressure_kpa: float,
+    gamma: float,
+) -> float:
+    """Compute Mach number from the isentropic total-to-static pressure ratio.
+
+    Args:
+        total_pressure_kpa: stagnation pressure P0 [kPa]. Must be > 0.
+        static_pressure_kpa: static pressure P [kPa]. Must be > 0.
+        gamma: specific heat ratio. Must be > 1.
+
+    Returns:
+        Mach number (dimensionless).
+
+    Raises:
+        ValueError: if any argument violates its constraint or P0 < P.
+    """
+    if total_pressure_kpa <= 0:
+        raise ValueError(f"total_pressure_kpa must be > 0, got {total_pressure_kpa}.")
+    if static_pressure_kpa <= 0:
+        raise ValueError(f"static_pressure_kpa must be > 0, got {static_pressure_kpa}.")
+    if total_pressure_kpa < static_pressure_kpa:
+        raise ValueError(
+            f"total_pressure_kpa ({total_pressure_kpa}) must be >= "
+            f"static_pressure_kpa ({static_pressure_kpa})."
+        )
+    if gamma <= 1:
+        raise ValueError(f"gamma must be > 1, got {gamma}.")
+    pressure_ratio = total_pressure_kpa / static_pressure_kpa
+    return math.sqrt(
+        (2.0 / (gamma - 1.0)) * (pressure_ratio ** ((gamma - 1.0) / gamma) - 1.0)
+    )
+
+
 def analyze_nozzle(inputs: NozzleInputs) -> NozzleResults:
     """Run a complete 1-D isentropic nozzle analysis.
 

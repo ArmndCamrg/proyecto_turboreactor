@@ -26,6 +26,7 @@ from src.calculations import (
     calculate_static_temperature,
     calculate_static_pressure,
     calculate_velocity_from_temperature,
+    calculate_mach_from_pressure_ratio,
     NozzleInputs,
 )
 
@@ -583,3 +584,60 @@ def test_velocity_from_temperature_raises_when_total_not_greater():
 def test_velocity_from_temperature_raises_when_static_exceeds_total():
     with pytest.raises(ValueError):
         calculate_velocity_from_temperature(1.4, 287.0, 400.0, 500.0)
+
+
+# ── calculate_mach_from_pressure_ratio ────────────────────────────────────────
+
+def test_mach_from_pressure_ratio_known_value():
+    """Roundtrip: Mach recovered from P0/P must match the original Mach number.
+
+    At M=0.8, gamma=1.4: P0/P = (1 + 0.2 * 0.64)^3.5 ≈ 1.5243.
+    Inverting must return M=0.8.
+    """
+    gamma = 1.4
+    mach_in = 0.8
+    p0_over_p = (1.0 + (gamma - 1.0) / 2.0 * mach_in ** 2) ** (gamma / (gamma - 1.0))
+    mach_out = calculate_mach_from_pressure_ratio(p0_over_p * 100.0, 100.0, gamma)
+    assert mach_out == pytest.approx(mach_in, rel=1e-6)
+
+
+def test_mach_from_pressure_ratio_zero_when_pressures_equal():
+    """When P0 == P the Mach number must be zero."""
+    assert calculate_mach_from_pressure_ratio(150.0, 150.0, 1.4) == pytest.approx(0.0)
+
+
+def test_mach_from_pressure_ratio_increases_with_ratio():
+    """Higher pressure ratio must yield a higher Mach number."""
+    m_low = calculate_mach_from_pressure_ratio(120.0, 100.0, 1.4)
+    m_high = calculate_mach_from_pressure_ratio(200.0, 100.0, 1.4)
+    assert m_high > m_low
+
+
+def test_mach_from_pressure_ratio_raises_when_total_less_than_static():
+    with pytest.raises(ValueError):
+        calculate_mach_from_pressure_ratio(80.0, 100.0, 1.4)
+
+
+def test_mach_from_pressure_ratio_raises_on_zero_total_pressure():
+    with pytest.raises(ValueError):
+        calculate_mach_from_pressure_ratio(0.0, 100.0, 1.4)
+
+
+def test_mach_from_pressure_ratio_raises_on_zero_static_pressure():
+    with pytest.raises(ValueError):
+        calculate_mach_from_pressure_ratio(200.0, 0.0, 1.4)
+
+
+def test_mach_from_pressure_ratio_raises_on_negative_total_pressure():
+    with pytest.raises(ValueError):
+        calculate_mach_from_pressure_ratio(-100.0, 100.0, 1.4)
+
+
+def test_mach_from_pressure_ratio_raises_on_gamma_equal_one():
+    with pytest.raises(ValueError):
+        calculate_mach_from_pressure_ratio(200.0, 100.0, 1.0)
+
+
+def test_mach_from_pressure_ratio_raises_on_gamma_below_one():
+    with pytest.raises(ValueError):
+        calculate_mach_from_pressure_ratio(200.0, 100.0, 0.9)
