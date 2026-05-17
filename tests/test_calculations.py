@@ -23,6 +23,9 @@ from src.calculations import (
     calculate_mach_number,
     calculate_flow_area,
     build_results_table,
+    calculate_static_temperature,
+    calculate_static_pressure,
+    calculate_velocity_from_temperature,
     NozzleInputs,
 )
 
@@ -468,3 +471,115 @@ def test_gamma_raises_on_zero_gas_constant():
 def test_gamma_raises_on_negative_gas_constant():
     with pytest.raises(ValueError):
         calculate_gamma(1005.0, -287.05)
+
+
+# ── calculate_static_temperature ──────────────────────────────────────────────
+
+def test_static_temperature_at_zero_mach():
+    """At M=0 static temperature must equal total temperature."""
+    assert calculate_static_temperature(1000.0, 1.4, 0.0) == pytest.approx(1000.0)
+
+
+def test_static_temperature_decreases_with_mach():
+    """Static temperature must be lower than total temperature for M > 0."""
+    T = calculate_static_temperature(1000.0, 1.4, 0.8)
+    assert T < 1000.0
+
+
+def test_static_temperature_known_value():
+    """T0=600 K, gamma=1.4, M=1: T = 600 / (1 + 0.2) = 500 K."""
+    assert calculate_static_temperature(600.0, 1.4, 1.0) == pytest.approx(500.0)
+
+
+def test_static_temperature_raises_on_zero_total_temperature():
+    with pytest.raises(ValueError):
+        calculate_static_temperature(0.0, 1.4, 0.5)
+
+
+def test_static_temperature_raises_on_gamma_equal_one():
+    with pytest.raises(ValueError):
+        calculate_static_temperature(600.0, 1.0, 0.5)
+
+
+def test_static_temperature_raises_on_negative_mach():
+    with pytest.raises(ValueError):
+        calculate_static_temperature(600.0, 1.4, -0.1)
+
+
+# ── calculate_static_pressure ─────────────────────────────────────────────────
+
+def test_static_pressure_at_zero_mach():
+    """At M=0 static pressure must equal total pressure."""
+    assert calculate_static_pressure(200.0, 1.4, 0.0) == pytest.approx(200.0)
+
+
+def test_static_pressure_decreases_with_mach():
+    """Static pressure must be lower than total pressure for M > 0."""
+    P = calculate_static_pressure(200.0, 1.4, 0.8)
+    assert P < 200.0
+
+
+def test_static_pressure_known_value():
+    """P0=200 kPa, gamma=1.4, M=1: P = 200 / (1.2)^3.5 ≈ 105.83 kPa."""
+    P = calculate_static_pressure(200.0, 1.4, 1.0)
+    assert P == pytest.approx(200.0 / (1.2 ** 3.5), rel=1e-5)
+
+
+def test_static_pressure_raises_on_zero_total_pressure():
+    with pytest.raises(ValueError):
+        calculate_static_pressure(0.0, 1.4, 0.5)
+
+
+def test_static_pressure_raises_on_gamma_equal_one():
+    with pytest.raises(ValueError):
+        calculate_static_pressure(200.0, 1.0, 0.5)
+
+
+def test_static_pressure_raises_on_negative_mach():
+    with pytest.raises(ValueError):
+        calculate_static_pressure(200.0, 1.4, -0.1)
+
+
+# ── calculate_velocity_from_temperature ───────────────────────────────────────
+
+def test_velocity_from_temperature_known_value():
+    """Verify against manual calculation: gamma=1.4, R=287, T0=600, T=500.
+
+    v = sqrt(2 * 1.4 * 287 * (600 - 500) / 0.4) = sqrt(2 * 1.4 * 287 * 250) = sqrt(200900) ≈ 448.2 m/s
+    """
+    import math
+    expected = math.sqrt(2.0 * 1.4 * 287.0 * 100.0 / 0.4)
+    assert calculate_velocity_from_temperature(1.4, 287.0, 600.0, 500.0) == pytest.approx(expected, rel=1e-5)
+
+
+def test_velocity_from_temperature_increases_with_delta_t():
+    """Larger temperature drop must yield a higher velocity."""
+    v_small = calculate_velocity_from_temperature(1.4, 287.0, 600.0, 550.0)
+    v_large = calculate_velocity_from_temperature(1.4, 287.0, 600.0, 400.0)
+    assert v_large > v_small
+
+
+def test_velocity_from_temperature_raises_on_gamma_equal_one():
+    with pytest.raises(ValueError):
+        calculate_velocity_from_temperature(1.0, 287.0, 600.0, 500.0)
+
+
+def test_velocity_from_temperature_raises_on_zero_gas_constant():
+    with pytest.raises(ValueError):
+        calculate_velocity_from_temperature(1.4, 0.0, 600.0, 500.0)
+
+
+def test_velocity_from_temperature_raises_on_zero_static_temperature():
+    with pytest.raises(ValueError):
+        calculate_velocity_from_temperature(1.4, 287.0, 600.0, 0.0)
+
+
+def test_velocity_from_temperature_raises_when_total_not_greater():
+    """total_temperature_k must be strictly greater than static_temperature_k."""
+    with pytest.raises(ValueError):
+        calculate_velocity_from_temperature(1.4, 287.0, 500.0, 500.0)
+
+
+def test_velocity_from_temperature_raises_when_static_exceeds_total():
+    with pytest.raises(ValueError):
+        calculate_velocity_from_temperature(1.4, 287.0, 400.0, 500.0)

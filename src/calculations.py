@@ -1,6 +1,7 @@
 """Thermodynamic calculations for turbofan nozzle flow."""
 
 from dataclasses import dataclass
+import math
 import numpy as np
 import pandas as pd
 from src.gas_properties import GasProperties, calculate_density, calculate_speed_of_sound
@@ -244,6 +245,96 @@ def build_results_table(
         "density_kg_m3": densities,
         "flow_area_m2": flow_areas,
     })
+
+
+def calculate_static_temperature(
+    total_temperature_k: float,
+    gamma: float,
+    mach_number: float,
+) -> float:
+    """Compute static temperature from stagnation temperature using isentropic relation.
+
+    Args:
+        total_temperature_k: stagnation (total) temperature T0 [K]. Must be > 0.
+        gamma: specific heat ratio. Must be > 1.
+        mach_number: local Mach number. Must be >= 0.
+
+    Returns:
+        Static temperature T [K].
+
+    Raises:
+        ValueError: if any argument violates its constraint.
+    """
+    if total_temperature_k <= 0:
+        raise ValueError(f"total_temperature_k must be > 0, got {total_temperature_k}.")
+    if gamma <= 1:
+        raise ValueError(f"gamma must be > 1, got {gamma}.")
+    if mach_number < 0:
+        raise ValueError(f"mach_number must be >= 0, got {mach_number}.")
+    return total_temperature_k / (1.0 + ((gamma - 1.0) / 2.0) * mach_number ** 2)
+
+
+def calculate_static_pressure(
+    total_pressure_kpa: float,
+    gamma: float,
+    mach_number: float,
+) -> float:
+    """Compute static pressure from stagnation pressure using isentropic relation.
+
+    Args:
+        total_pressure_kpa: stagnation (total) pressure P0 [kPa]. Must be > 0.
+        gamma: specific heat ratio. Must be > 1.
+        mach_number: local Mach number. Must be >= 0.
+
+    Returns:
+        Static pressure P [kPa].
+
+    Raises:
+        ValueError: if any argument violates its constraint.
+    """
+    if total_pressure_kpa <= 0:
+        raise ValueError(f"total_pressure_kpa must be > 0, got {total_pressure_kpa}.")
+    if gamma <= 1:
+        raise ValueError(f"gamma must be > 1, got {gamma}.")
+    if mach_number < 0:
+        raise ValueError(f"mach_number must be >= 0, got {mach_number}.")
+    exponent = gamma / (gamma - 1.0)
+    return total_pressure_kpa / (1.0 + ((gamma - 1.0) / 2.0) * mach_number ** 2) ** exponent
+
+
+def calculate_velocity_from_temperature(
+    gamma: float,
+    gas_constant: float,
+    total_temperature_k: float,
+    static_temperature_k: float,
+) -> float:
+    """Compute flow velocity from the isentropic enthalpy drop between total and static states.
+
+    Args:
+        gamma: specific heat ratio. Must be > 1.
+        gas_constant: specific gas constant R [J/(kg·K)]. Must be > 0.
+        total_temperature_k: stagnation temperature T0 [K]. Must be > static_temperature_k.
+        static_temperature_k: static temperature T [K]. Must be > 0.
+
+    Returns:
+        Flow velocity [m/s].
+
+    Raises:
+        ValueError: if any argument violates its constraint.
+    """
+    if gamma <= 1:
+        raise ValueError(f"gamma must be > 1, got {gamma}.")
+    if gas_constant <= 0:
+        raise ValueError(f"gas_constant must be > 0, got {gas_constant}.")
+    if static_temperature_k <= 0:
+        raise ValueError(f"static_temperature_k must be > 0, got {static_temperature_k}.")
+    if total_temperature_k <= static_temperature_k:
+        raise ValueError(
+            f"total_temperature_k ({total_temperature_k}) must be greater than "
+            f"static_temperature_k ({static_temperature_k})."
+        )
+    delta_t = total_temperature_k - static_temperature_k
+    return math.sqrt(2.0 * gamma * gas_constant * delta_t / (gamma - 1.0))
 
 
 def analyze_nozzle(inputs: NozzleInputs) -> NozzleResults:
