@@ -1,0 +1,6 @@
+# High-risk paths
+/infra/                 @ArmndCamrg
+/.github/workflows/     @ArmndCamrg
+/cloudbuild/            @ArmndCamrg
+/.claude/               @ArmndCamrg
+/CLAUDE.md              @ArmndCamrg

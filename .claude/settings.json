@@ -1,0 +1,43 @@
+{
+  "statusLine": {
+    "type": "command",
+    "command": "echo 'Claude Code • GCP template active'"
+  },
+  "permissions": {
+    "allow": [
+      "Read(*)",
+      "Edit(*)",
+      "Write(*)",
+      "Glob(*)",
+      "Grep(*)"
+    ],
+    "ask": [
+      "Bash(pytest:*)",
+      "Bash(npm test:*)",
+      "Bash(pnpm test:*)",
+      "Bash(uv run pytest:*)",
+      "Bash(docker:*)",
+      "Bash(terraform plan:*)",
+      "Bash(gcloud:*)",
+      "Bash(git push:*)"
+    ],
+    "deny": [
+        "Bash(terraform apply:*)",
+        "Bash(terraform destroy:*)",
+        "Bash(gcloud projects delete:*)",
+        "Bash(gcloud iam:*)",
+        "Bash(gsutil rm -r:*)",
+        "Bash(gcloud run deploy * --project=*prod*)",
+        "Bash(gcloud run deploy * --project=*production*)",
+        "Bash(gcloud run deploy * --project=*prd*)",
+        "Bash(git push origin main:*)",
+        "Bash(git push --force:*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [],
+    "PostToolUse": [],
+    "UserPromptSubmit": [],
+    "Stop": []
+  }
+}
