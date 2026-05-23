@@ -19,8 +19,10 @@
 11. [Abrir la app en el navegador](#11-abrir-la-app-en-el-navegador)
 12. [Correr las pruebas con pytest](#12-correr-las-pruebas-con-pytest)
 13. [Exportar resultados en CSV](#13-exportar-resultados-en-csv)
-14. [Actualizar el proyecto con git pull](#14-actualizar-el-proyecto-con-git-pull)
-15. [Problemas comunes y solución](#15-problemas-comunes-y-solución)
+14. [Variables visualizadas](#14-variables-visualizadas)
+15. [Interpretación de gráficas](#15-interpretación-de-gráficas)
+16. [Actualizar el proyecto con git pull](#16-actualizar-el-proyecto-con-git-pull)
+17. [Problemas comunes y solución](#17-problemas-comunes-y-solución)
 
 ---
 
@@ -329,9 +331,10 @@ Una vez en el navegador:
 2. Haz clic en el botón **Calcular**.
 
 3. Revisa las métricas superiores: Mach máximo, velocidad máxima, densidad
-   inicial y área final.
+   inicial, área final y radio equivalente final.
 
-4. Explora las gráficas interactivas de los perfiles termodinámicos.
+4. Explora las gráficas interactivas de los perfiles termodinámicos y la
+   comparación normalizada de tendencias.
 
 ---
 
@@ -392,9 +395,11 @@ esperado y el valor obtenido para facilitar el diagnóstico.
 | `mach_number` | Número de Mach local M | — |
 | `density_kg_m3` | Densidad del gas ρ | kg/m³ |
 | `flow_area_m2` | Área transversal de flujo A | m² |
+| `radius_m` | Radio equivalente de sección circular R | m |
 
-> La primera fila tiene `flow_area_m2 = NaN` porque en P = P₀ el fluido
-> está en reposo y el área es físicamente indefinida.
+> La primera fila tiene `flow_area_m2 = NaN` y `radius_m = NaN` porque en
+> P = P₀ el fluido está en reposo (M = 0, V = 0) y el área es físicamente
+> indefinida. Estas filas deben omitirse al analizar la geometría.
 
 ### Abrir el CSV en Excel
 
@@ -405,7 +410,94 @@ esperado y el valor obtenido para facilitar el diagnóstico.
 
 ---
 
-## 14. Actualizar el proyecto con git pull
+## 14. Variables visualizadas
+
+> **Nota:** Las variables se calculan mediante relaciones isentrópicas
+> simplificadas para flujo compresible. Los resultados representan el límite
+> teórico de un gas caloricamente perfecto sin pérdidas.
+
+La aplicación calcula y grafica las siguientes variables en cada punto del
+rango de presiones especificado:
+
+| Variable | Símbolo | Descripción | Unidad |
+| -------- | ------- | ----------- | ------ |
+| Presión estática | P | Presión termodinámica local del gas. Es el eje x de todas las gráficas de perfil; disminuye conforme el gas se expande hacia la salida. | kPa |
+| Número de Mach | M | Relación entre la velocidad del flujo y la velocidad local del sonido. Cuantifica el régimen de compresibilidad: subsónico (M < 1) o supersónico (M > 1). | — |
+| Velocidad | V | Velocidad axial del flujo obtenida de la caída de entalpía entre el estado total y el estático. Aumenta al disminuir la presión. | m/s |
+| Densidad | ρ | Masa por unidad de volumen del gas, calculada mediante la ley del gas ideal. Disminuye al expandirse el gas. | kg/m³ |
+| Área de flujo | A | Sección transversal necesaria para que el gasto másico especificado sea consistente con la ecuación de continuidad `A = ṁ / (ρ V)`. | m² |
+| Radio equivalente | R | Radio de una sección circular de área igual al área de flujo calculada. **El radio equivalente se calcula suponiendo una sección transversal circular:** `R = √(A / π)`. | m |
+
+### Nota sobre el punto inicial
+
+En la primera fila (P = P₀) el fluido está en reposo: M = 0 y V = 0.
+En ese punto el área de flujo y el radio equivalente son físicamente
+indefinidos y aparecen como `NaN` tanto en la tabla como en las gráficas.
+
+---
+
+## 15. Interpretación de gráficas
+
+La aplicación genera dos tipos de visualizaciones: gráficas individuales de
+perfil y una gráfica comparativa normalizada.
+
+### Gráficas de perfil individual
+
+Cada gráfica muestra cómo evoluciona una variable termodinámica en función
+de la presión estática local. El eje x siempre es la presión [kPa],
+que decrece de izquierda a derecha conforme el gas se expande.
+
+| Gráfica | Qué representa |
+| ------- | -------------- |
+| **Presión vs Velocidad** | La velocidad aumenta al caer la presión: la entalpía de remanso se convierte en energía cinética. |
+| **Presión vs Número de Mach** | El Mach crece monótonamente; cruza M = 1 si la tobera está ahogada. |
+| **Presión vs Temperatura estática** | La temperatura cae junto con la presión por la expansión isentrópica. |
+| **Presión vs Densidad** | La densidad decrece siguiendo la ley del gas ideal a temperatura decreciente. |
+| **Presión vs Área de flujo** | El área puede disminuir (tobera convergente subsónica) o aumentar (divergente supersónica) según el régimen. |
+| **Radio equivalente vs presión** | Evolución del radio de la sección circular equivalente. Sigue la misma tendencia que el área porque `R = √(A / π)`: al aumentar A, R aumenta proporcionalmente. |
+
+### Por qué el radio sigue una tendencia similar al área
+
+El radio equivalente es una transformación monotóna del área:
+
+```math
+R = √(A / π)
+```
+
+Dado que la raíz cuadrada es una función estrictamente creciente, R crece
+siempre que A crece y decrece siempre que A decrece. La forma de la curva
+es la misma; solo cambia la escala del eje y (de m² a m). Esto permite al
+ingeniero leer directamente el diámetro requerido en cada sección sin
+necesidad de calcular manualmente la raíz.
+
+### Gráfica de comparación normalizada de tendencias
+
+Esta gráfica superpone todas las variables en un único eje aplicando
+normalización **min-max** a cada columna:
+
+```math
+valor_norm = (valor − mín) / (máx − mín)
+```
+
+El resultado de cada variable queda en el rango [0, 1], lo que permite
+comparar tendencias y correlaciones independientemente de las unidades
+originales (kPa, K, m/s, kg/m³, m², m).
+
+**Cuándo es útil:**
+
+- Identificar qué variables crecen o decrecen juntas al expandirse el gas.
+- Detectar anomalías en el perfil (por ejemplo, un área que no decrece
+  cuando se esperaría que lo hiciera).
+- Comparar visualmente la pendiente de cada propiedad a lo largo del rango
+  de presiones sin que las diferencias de escala distorsionen la lectura.
+
+> La gráfica normalizada **no** conserva las unidades originales ni permite
+> leer valores absolutos. Úsala solo para análisis de tendencias; para
+> valores numéricos, consulta la tabla de resultados o el CSV exportado.
+
+---
+
+## 16. Actualizar el proyecto con git pull
 
 Cuando el repositorio tenga cambios nuevos, actualiza tu copia local con:
 
@@ -434,7 +526,7 @@ pytest tests/ -v
 
 ---
 
-## 15. Problemas comunes y solución
+## 17. Problemas comunes y solución
 
 ### `python` no se reconoce como comando
 

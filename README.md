@@ -47,6 +47,53 @@ presión de descarga P_salida, en cada punto se calcula:
 
 ---
 
+## Variables calculadas
+
+El modelo produce un perfil de las siguientes variables a lo largo del rango de
+presiones especificado:
+
+| Variable | Símbolo | Descripción | Unidad |
+| -------- | ------- | ----------- | ------ |
+| Presión estática | P | Presión termodinámica local del gas en cada sección. Disminuye conforme el gas se expande hacia la salida. | kPa |
+| Temperatura estática | T | Temperatura del gas en el marco de referencia del fluido. Cae al convertirse entalpía en energía cinética. | K |
+| Velocidad | V | Velocidad axial del flujo calculada a partir de la caída de entalpía entre el estado total y el estático. | m/s |
+| Número de Mach | M | Relación entre la velocidad del flujo y la velocidad local del sonido. Aumenta monótonamente al disminuir la presión. | — |
+| Densidad | ρ | Masa por unidad de volumen del gas, obtenida mediante la ley del gas ideal. | kg/m³ |
+| Área de flujo | A | Sección transversal requerida por la ecuación de continuidad para el gasto másico dado. | m² |
+| Radio equivalente | R | Radio de una sección circular cuya área coincide con el área de flujo calculada. | m |
+
+### Radio equivalente de flujo
+
+El radio equivalente convierte el área de flujo en una dimensión geométrica
+intuitiva asumiendo que la sección transversal de la tobera es circular.
+
+**Supuesto geométrico:** la sección transversal es un círculo, por lo que:
+
+```math
+A = π R²
+```
+
+Despejando el radio:
+
+```math
+R = √(A / π)
+```
+
+Esta relación es la inversa directa de la fórmula del área del círculo.
+No requiere hipótesis adicionales sobre el flujo; sólo describe la geometría
+implícita de una tobera de revolución.
+
+> **Interpretación física:** El radio equivalente permite relacionar el
+> comportamiento termodinámico del flujo con la geometría requerida de la
+> tobera. Al ver cómo evoluciona R con la presión, el ingeniero puede estimar
+> directamente el diámetro de cada sección sin pasar por el área.
+
+**Nota:** en el punto de remanso (P = P₀, M = 0, V = 0) el área no está
+definida y, por tanto, el radio equivalente también se registra como `NaN`
+en esa fila del resultado.
+
+---
+
 ## Supuestos del MVP
 
 1. **Flujo isentrópico** — proceso adiabático y sin irreversibilidades (sin fricción,
@@ -80,7 +127,7 @@ presión de descarga P_salida, en cada punto se calcula:
 
 ## Estructura de carpetas
 
-```
+```text
 proyecto_turboreactor/
 │
 ├── app.py                        # Punto de entrada — interfaz Streamlit
@@ -189,7 +236,7 @@ Streamlit abrirá automáticamente el navegador en `http://localhost:8501`.
    - Número de puntos de discretización.
 2. Presionar el botón **Calcular**.
 3. Revisar las **métricas** en la parte superior: Mach máximo, velocidad máxima,
-   densidad inicial y área de salida.
+   densidad inicial, área de salida y radio equivalente final.
 4. Explorar la **tabla de resultados** (primeras 20 filas visibles).
 5. Analizar los **perfiles termodinámicos** en las gráficas interactivas:
    - Presión estática vs Velocidad
@@ -197,7 +244,11 @@ Streamlit abrirá automáticamente el navegador en `http://localhost:8501`.
    - Presión estática vs Temperatura estática
    - Presión estática vs Densidad
    - Presión estática vs Área de flujo
-6. Descargar el resultado completo en formato CSV.
+   - **Radio equivalente vs presión**
+6. Revisar la **comparación normalizada de tendencias**: todas las propiedades
+   (incluyendo el radio equivalente) normalizadas al rango [0, 1] para comparar
+   su evolución en la misma escala, independientemente de sus unidades.
+7. Descargar el resultado completo en formato CSV.
 
 ---
 
@@ -225,7 +276,7 @@ Las pruebas unitarias cubren:
 **`calculations`**
 
 - `generate_pressure_range`, `calculate_velocity_from_mach`, `calculate_mach_number`
-- `calculate_flow_area`, `build_results_table`
+- `calculate_flow_area`, `calculate_radius_from_area`, `build_results_table`
 - `calculate_static_temperature`, `calculate_static_pressure`
 - `calculate_velocity_from_temperature`, `calculate_mach_from_pressure_ratio`
 
@@ -255,14 +306,27 @@ Cada función tiene pruebas de:
 | `mach_number` | Número de Mach local M | — |
 | `density_kg_m3` | Densidad del gas ρ | kg/m³ |
 | `flow_area_m2` | Área transversal de flujo A | m² |
+| `radius_m` | Radio equivalente de sección circular R | m |
 
-> La primera fila tiene `flow_area_m2 = NaN` porque en P = P₀ el fluido está
-> en reposo (M = 0, V = 0) y el área es indefinida.
+> La primera fila tiene `flow_area_m2 = NaN` y `radius_m = NaN` porque en
+> P = P₀ el fluido está en reposo (M = 0, V = 0) y el área es indefinida.
 
 ---
 
 ## Limitaciones actuales
 
+- **Modelo aún idealizado** — los resultados representan el límite teórico
+  isentrópico; las condiciones reales de operación siempre difieren por efectos
+  no modelados.
+- **Sin pérdidas viscosas** — no se consideran fricción en la pared ni capa
+  límite; la presión total se conserva perfectamente, lo que sobreestima la
+  velocidad y el empuje en diseños reales.
+- **Sin transferencia de calor** — el proceso se modela como completamente
+  adiabático; en toberas refrigeradas o en presencia de flujo de calor hacia
+  la pared esto introduce error significativo.
+- **Solo secciones circulares** — el radio equivalente asume geometría de
+  revolución. Toberas de sección rectangular, elíptica o tipo "slot" no
+  pueden representarse con esta formulación.
 - **Sin ondas de choque** — el modelo no detecta ni modela discontinuidades.
   Los resultados en condiciones supersónicas fuertes pueden no ser físicamente
   representativos sin verificar el régimen de operación.
@@ -277,8 +341,8 @@ Cada función tiene pruebas de:
   no se modela variación radial de temperatura.
 - **Sin análisis de empuje** — `analyze_nozzle` aún no está implementada; el
   cálculo de empuje bruto y evaluación de ahogamiento están pendientes.
-- **`flow_area_m2` = NaN en el punto inicial** — consecuencia del punto de
-  remanso donde V = 0; debe omitirse al graficar o analizar el área.
+- **`flow_area_m2` y `radius_m` = NaN en el punto inicial** — consecuencia del
+  punto de remanso donde V = 0; deben omitirse al graficar o analizar estas columnas.
 
 ---
 
@@ -286,10 +350,19 @@ Cada función tiene pruebas de:
 
 ### Física y modelo
 
+- [ ] **Flujo ahogado (choking flow)** — detectar automáticamente cuándo la
+      garganta alcanza M = 1 y limitar el cálculo al régimen subsónico correcto
+      cuando la contrapresión supera el valor crítico.
+- [ ] **Área crítica A\*** — calcular y mostrar el área de la garganta donde
+      M = 1, como referencia de diseño fundamental de la tobera.
+- [ ] **Relaciones A/A\*** — implementar `mach_from_area_ratio` para obtener
+      el número de Mach a partir de la razón de área local respecto a la
+      garganta, habilitando el análisis geométrico completo de la tobera.
+- [ ] **Régimen supersónico** — extender el modelo para cubrir la rama
+      supersónica (M > 1) de la relación A/A\*, incluyendo la detección de
+      la condición de sobre- y sub-expansión en la salida.
 - [ ] Implementar `analyze_nozzle`: cálculo completo de empuje bruto, verificación
       de ahogamiento y clasificación del tipo de tobera.
-- [ ] Implementar relación de área-Mach (`mach_from_area_ratio`) para análisis
-      geométrico con sección variable.
 - [ ] Agregar modelo de onda de choque normal para condiciones de sub-expansión
       en toberas convergentes-divergentes.
 - [ ] Incorporar propiedades variables con la temperatura (tablas de gas real
