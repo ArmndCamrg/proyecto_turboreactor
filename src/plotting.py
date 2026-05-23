@@ -158,6 +158,82 @@ def create_line_chart(
     return fig
 
 
+def create_normalized_comparison_chart(df) -> go.Figure:
+    """Grafica todas las propiedades termodinámicas principales normalizadas en un solo eje.
+
+    Dado que cada variable tiene unidades distintas (K, m/s, kg/m³, m²),
+    no es posible compararlas directamente en la misma escala. Esta función
+    normaliza cada columna al rango [0, 1] usando min-max antes de graficarla,
+    lo que permite visualizar y comparar tendencias y correlaciones entre
+    propiedades a lo largo del rango de presiones.
+
+    Normalización aplicada por columna
+    ------------------------------------
+    normalized = (valor - mín) / (máx - mín)
+
+    Si máx == mín (columna constante), el valor normalizado se fija en 0
+    para evitar división entre cero.
+
+    Columnas graficadas
+    -------------------
+    - static_temperature_k  — temperatura estática T [K]
+    - velocity_m_s          — velocidad del flujo V [m/s]
+    - mach_number           — número de Mach M (adimensional)
+    - density_kg_m3         — densidad ρ [kg/m³]
+    - flow_area_m2          — área transversal A [m²]
+
+    Eje x: presión estática local pressure_kpa [kPa].
+    Eje y: valor normalizado entre 0 y 1 (sin unidades).
+
+    Parámetros
+    ----------
+    df : pd.DataFrame
+        DataFrame producido por `build_results_table`. Debe contener las
+        columnas listadas arriba y la columna `pressure_kpa`.
+
+    Retorna
+    -------
+    go.Figure
+        Figura interactiva de Plotly con una traza por cada propiedad.
+    """
+    columns = [
+        "static_temperature_k",
+        "velocity_m_s",
+        "mach_number",
+        "density_kg_m3",
+        "flow_area_m2",
+    ]
+
+    fig = go.Figure()
+
+    for col in columns:
+        series = df[col].copy()
+        col_min = series.min()
+        col_max = series.max()
+
+        # Normalización min-max; columna constante queda en 0 para evitar NaN
+        if col_max == col_min:
+            normalized = series * 0.0
+        else:
+            normalized = (series - col_min) / (col_max - col_min)
+
+        fig.add_trace(go.Scatter(
+            x=df["pressure_kpa"],
+            y=normalized,
+            mode="lines",
+            name=col,
+        ))
+
+    fig.update_layout(
+        title="Comparación normalizada de propiedades termodinámicas",
+        xaxis_title="Presión [kPa]",
+        yaxis_title="Valor normalizado (0 a 1)",
+        legend_title="Propiedad",
+    )
+
+    return fig
+
+
 def plot_results_summary(results: NozzleResults) -> Figure:
     """Genera una figura resumen con las magnitudes clave en el plano de salida.
 

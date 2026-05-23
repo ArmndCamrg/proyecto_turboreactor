@@ -29,7 +29,7 @@ Entradas del usuario
 import streamlit as st
 
 from src.calculations import build_results_table
-from src.plotting import create_line_chart
+from src.plotting import create_line_chart, create_normalized_comparison_chart
 
 # ── Configuración de página ───────────────────────────────────────────────────
 
@@ -196,6 +196,19 @@ if run:
             fig = create_line_chart(df, "pressure_kpa", y_col, title, y_label)
             target_col = col_a if i % 2 == 0 else col_b
             target_col.plotly_chart(fig, use_container_width=True)
+
+        st.divider()
+
+        # ── Comparación de tendencias ─────────────────────────────────────────
+        # Cada propiedad se normaliza a [0, 1] para poder superponerlas en un
+        # mismo eje, independientemente de sus unidades originales.
+        st.subheader("Comparación de tendencias")
+        st.caption(
+            "Esta gráfica normaliza las variables entre 0 y 1 para comparar "
+            "tendencias, ya que cada propiedad tiene unidades distintas."
+        )
+        fig_norm = create_normalized_comparison_chart(df)
+        st.plotly_chart(fig_norm, use_container_width=True)
 
     except ValueError as exc:
         # Errores de validación de parámetros (p. ej. P_salida > P₀)
