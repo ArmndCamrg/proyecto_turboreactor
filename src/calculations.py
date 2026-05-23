@@ -390,6 +390,40 @@ def calculate_flow_area(
     return mass_flow_rate / (density * velocity)
 
 
+def calculate_radius_from_area(area_m2: float) -> float:
+    """Calcula el radio equivalente de una sección transversal circular dado su área.
+
+    Supuesto
+    --------
+    - La sección transversal es circular: A = π R².
+
+    Fórmula
+    -------
+    R = √(A / π)
+
+    Despejando R de la ecuación del área del círculo.
+
+    Parámetros
+    ----------
+    area_m2 : float
+        Área de la sección transversal A [m²]. Debe ser > 0.
+
+    Retorna
+    -------
+    float
+        Radio equivalente R [m].
+
+    Excepciones
+    -----------
+    ValueError
+        Si area_m2 <= 0.
+    """
+    if area_m2 <= 0:
+        raise ValueError(f"area_m2 must be > 0, got {area_m2}.")
+    # R = √(A / π)  —  inversa del área del círculo
+    return math.sqrt(area_m2 / math.pi)
+
+
 def build_results_table(
     inlet_pressure_kpa: float,
     outlet_pressure_kpa: float,
@@ -455,7 +489,7 @@ def build_results_table(
     pd.DataFrame
         Tabla con columnas: pressure_kpa, static_temperature_k,
         speed_of_sound_m_s, velocity_m_s, mach_number, density_kg_m3,
-        flow_area_m2.
+        flow_area_m2, radius_m.
     """
     # Paso 0: barrido de presiones estáticas de P₀ hasta P_salida
     pressures = generate_pressure_range(inlet_pressure_kpa, outlet_pressure_kpa, num_points)
@@ -496,6 +530,12 @@ def build_results_table(
         for rho, v in zip(densities, velocities)
     ])
 
+    # Paso 7: radio equivalente R = √(A/π); NaN donde el área no está definida
+    radii = np.array([
+        calculate_radius_from_area(a) if not np.isnan(a) else np.nan
+        for a in flow_areas
+    ])
+
     return pd.DataFrame({
         "pressure_kpa": pressures,
         "static_temperature_k": static_temps,
@@ -504,6 +544,7 @@ def build_results_table(
         "mach_number": machs,
         "density_kg_m3": densities,
         "flow_area_m2": flow_areas,
+        "radius_m": radii,
     })
 
 

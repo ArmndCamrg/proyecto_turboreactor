@@ -22,6 +22,7 @@ from src.calculations import (
     calculate_velocity_from_mach,
     calculate_mach_number,
     calculate_flow_area,
+    calculate_radius_from_area,
     build_results_table,
     calculate_static_temperature,
     calculate_static_pressure,
@@ -378,6 +379,7 @@ EXPECTED_COLUMNS = {
     "mach_number",
     "density_kg_m3",
     "flow_area_m2",
+    "radius_m",
 }
 
 
@@ -394,12 +396,12 @@ def test_results_table_columns():
 
 
 def test_results_table_no_nulls_except_flow_area():
-    """All columns except flow_area_m2 must contain no NaN values.
+    """Todas las columnas excepto flow_area_m2 y radius_m no deben tener NaN.
 
-    flow_area_m2 is NaN at the inlet point where Mach=0 and velocity=0.
+    flow_area_m2 y radius_m son NaN en el punto inicial donde Mach=0 y V=0.
     """
     df = build_results_table(**RESULTS_TABLE_DEFAULTS)
-    cols = [c for c in df.columns if c != "flow_area_m2"]
+    cols = [c for c in df.columns if c not in ("flow_area_m2", "radius_m")]
     assert not df[cols].isnull().any().any()
 
 
@@ -657,3 +659,49 @@ def test_mach_from_pressure_ratio_raises_on_gamma_equal_one():
 def test_mach_from_pressure_ratio_raises_on_gamma_below_one():
     with pytest.raises(ValueError):
         calculate_mach_from_pressure_ratio(200.0, 100.0, 0.9)
+
+
+# ── calculate_radius_from_area ────────────────────────────────────────────────
+
+def test_radius_from_area_valid():
+    """Para A = π m², el radio equivalente debe ser exactamente 1.0 m."""
+    import math
+    area = math.pi  # A = π → R = √(π/π) = 1
+    assert calculate_radius_from_area(area) == pytest.approx(1.0)
+
+
+def test_radius_from_area_known_value():
+    """Para A = 4π m², el radio equivalente debe ser exactamente 2.0 m."""
+    import math
+    area = 4.0 * math.pi  # A = 4π → R = √(4π/π) = 2
+    assert calculate_radius_from_area(area) == pytest.approx(2.0)
+
+
+def test_radius_from_area_raises_on_zero():
+    """ValueError cuando area_m2 es cero."""
+    with pytest.raises(ValueError):
+        calculate_radius_from_area(0.0)
+
+
+def test_radius_from_area_raises_on_negative():
+    """ValueError cuando area_m2 es negativo."""
+    with pytest.raises(ValueError):
+        calculate_radius_from_area(-1.0)
+
+
+# ── build_results_table: columna radius_m ─────────────────────────────────────
+
+def test_results_table_radius_m_positive_and_no_nulls_after_inlet():
+    """radius_m debe ser positivo en todos los puntos válidos (sin NaN tras la entrada)."""
+    df = build_results_table(**RESULTS_TABLE_DEFAULTS)
+    valid_radii = df["radius_m"].dropna()
+    # Debe haber puntos válidos fuera del punto de remanso
+    assert len(valid_radii) > 0
+    # Todos los radios válidos deben ser estrictamente positivos
+    assert (valid_radii > 0).all()
+
+
+def test_results_table_radius_m_nan_at_inlet():
+    """radius_m debe ser NaN en el primer punto (remanso, Mach=0)."""
+    df = build_results_table(**RESULTS_TABLE_DEFAULTS)
+    assert np.isnan(df["radius_m"].iloc[0])

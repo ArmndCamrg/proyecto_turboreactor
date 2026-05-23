@@ -130,12 +130,14 @@ if run:
 
         # ── Métricas de resumen ───────────────────────────────────────────────
         # Se muestran los valores máximos de Mach y velocidad (en la sección
-        # de salida donde la presión es mínima) y las condiciones en la entrada.
-        col1, col2, col3, col4 = st.columns(4)
+        # de salida donde la presión es mínima), las condiciones en la entrada
+        # y el radio equivalente en la sección de salida.
+        col1, col2, col3, col4, col5 = st.columns(5)
         col1.metric("Mach máximo",             f"{df['mach_number'].max():.4f}")
         col2.metric("Velocidad máxima [m/s]",  f"{df['velocity_m_s'].max():.2f}")
         col3.metric("Densidad inicial [kg/m³]", f"{df['density_kg_m3'].iloc[0]:.4f}")
         col4.metric("Área final [m²]",          f"{df['flow_area_m2'].iloc[-1]:.6f}")
+        col5.metric("Radio final [m]",          f"{df['radius_m'].iloc[-1]:.6f}")
 
         st.divider()
 
@@ -188,7 +190,18 @@ if run:
                 "Área de flujo [m²]",
                 "Presión estática vs Área transversal de flujo",
             ),
+            (
+                "radius_m",
+                "Radio equivalente [m]",
+                "Radio equivalente vs presión",
+            ),
         ]
+
+        # Nota sobre el radio equivalente
+        st.caption(
+            "El radio se calcula a partir del área suponiendo una sección "
+            "transversal circular."
+        )
 
         # Disposición en dos columnas para aprovechar el layout ancho
         col_a, col_b = st.columns(2)

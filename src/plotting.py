@@ -181,6 +181,7 @@ def create_normalized_comparison_chart(df) -> go.Figure:
     - mach_number           — número de Mach M (adimensional)
     - density_kg_m3         — densidad ρ [kg/m³]
     - flow_area_m2          — área transversal A [m²]
+    - radius_m              — radio equivalente R [m]
 
     Eje x: presión estática local pressure_kpa [kPa].
     Eje y: valor normalizado entre 0 y 1 (sin unidades).
@@ -202,6 +203,7 @@ def create_normalized_comparison_chart(df) -> go.Figure:
         "mach_number",
         "density_kg_m3",
         "flow_area_m2",
+        "radius_m",
     ]
 
     fig = go.Figure()
