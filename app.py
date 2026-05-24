@@ -1,9 +1,19 @@
 """Calculadora de propiedades termodinámicas para toberas de turbofán — MVP local.
 
-Interfaz Streamlit que implementa un análisis isentrópico 1-D de una tobera.
-El usuario especifica las condiciones de remanso y las propiedades del gas;
-la aplicación calcula el número de Mach variable en cada punto a partir de
-la razón de presiones P₀/P y presenta los perfiles termodinámicos resultantes.
+Análisis y cálculo de sistemas convergentes–divergentes de un turborreactor
+de un avión comercial, considerando ecuaciones de estado y calores específicos
+dependientes de la altura y presión atmosférica.
+
+Institución : Instituto Politécnico Nacional
+Escuela     : ESIME Azcapotzalco
+Carrera     : Ingeniería Mecánica
+Periodo     : 2026-1
+Versión     : v1.0 MVP Académico
+
+Estudiantes
+-----------
+- Pérez López José Raúl
+- Escobedo Guerrero Oscar David
 
 Modelo físico
 -------------
@@ -14,6 +24,7 @@ Modelo físico
 - Velocidad: V = √[2γR(T₀-T)/(γ-1)].
 - Densidad: ρ = P/(RT)  (ley del gas ideal).
 - Área transversal: A = ṁ/(ρV)  (ecuación de continuidad).
+- Radio equivalente: R = √(A/π)  (sección transversal circular equivalente).
 
 Entradas del usuario
 --------------------
@@ -34,20 +45,196 @@ from src.plotting import create_line_chart, create_normalized_comparison_chart
 # ── Configuración de página ───────────────────────────────────────────────────
 
 st.set_page_config(
-    page_title="Turbofan Nozzle Calculator",
+    page_title="Análisis Toberas Turborreactor — IPN ESIME",
     page_icon="✈",
     layout="wide",
 )
 
-st.title("Turbofan Nozzle — Thermodynamic Properties")
-st.caption(
-    "Análisis isentrópico 1-D · Mach calculado dinámicamente a partir de "
-    "la relación P₀/P en cada punto · MVP local"
-)
+# ── Estilos CSS institucionales ───────────────────────────────────────────────
+# Paleta sobria basada en la identidad gráfica del IPN:
+#   guinda  #7B0D28   — color institucional principal
+#   gris oscuro  #2C2C2C  — textos principales
+#   gris medio   #555555  — textos secundarios
+#   fondo neutro #F7F7F7  — tarjetas y fondos alternos
+
+st.markdown("""
+<style>
+/*
+ * REGLA: todos los selectores usan clases propias (.ipn-*).
+ * NO se tocan: html, body, div, span, button, input, label,
+ * section, [data-testid], [class*="st-"] ni ningún elemento
+ * nativo de Streamlit.
+ */
+
+/* --- Header institucional -------------------------------------------------- */
+.ipn-header {
+    text-align: center;
+    padding: 0.4rem 1.5rem;
+    font-family: "Segoe UI", Arial, sans-serif;
+}
+.ipn-header-title {
+    font-size: 1.0rem;
+    font-weight: 700;
+    color: #2C2C2C;
+    line-height: 1.5;
+    margin: 0 0 0.5rem 0;
+    font-family: "Segoe UI", Arial, sans-serif;
+}
+.ipn-header-subtitle {
+    font-size: 0.82rem;
+    color: #555555;
+    margin: 0;
+    letter-spacing: 0.01em;
+    font-family: "Segoe UI", Arial, sans-serif;
+}
+
+/* --- Barra de identidad institucional -------------------------------------- */
+.ipn-barra {
+    background: linear-gradient(90deg, #7B0D28 0%, #A01830 50%, #7B0D28 100%);
+    height: 4px;
+    border-radius: 2px;
+    margin: 0.8rem 0 1.2rem 0;
+}
+
+/* --- Tarjeta de disclaimer ------------------------------------------------- */
+.ipn-disclaimer {
+    background-color: #FFFDE7;
+    border-left: 4px solid #F9A825;
+    border-radius: 4px;
+    padding: 0.75rem 1rem;
+    font-size: 0.83rem;
+    font-family: "Segoe UI", Arial, sans-serif;
+    color: #4A4A4A;
+    margin-bottom: 1.2rem;
+    line-height: 1.5;
+}
+
+/* --- Tarjeta de supuestos del modelo --------------------------------------- */
+.ipn-supuestos {
+    background-color: #F7F7F7;
+    border-left: 4px solid #7B0D28;
+    border-radius: 4px;
+    padding: 0.85rem 1.1rem;
+    font-size: 0.83rem;
+    font-family: "Segoe UI", Arial, sans-serif;
+    color: #333333;
+    margin-bottom: 1.2rem;
+    line-height: 1.55;
+}
+.ipn-supuestos-titulo {
+    display: block;
+    margin: 0 0 0.55rem 0;
+    font-size: 0.82rem;
+    color: #7B0D28;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 700;
+    font-family: "Segoe UI", Arial, sans-serif;
+}
+.ipn-supuestos ul {
+    margin: 0;
+    padding-left: 1.3rem;
+}
+.ipn-supuestos li {
+    margin-bottom: 0.25rem;
+}
+
+/* --- Footer institucional -------------------------------------------------- */
+.ipn-footer {
+    text-align: center;
+    font-size: 0.78rem;
+    font-family: "Segoe UI", Arial, sans-serif;
+    color: #888888;
+    padding: 0.8rem 0 0.3rem 0;
+    border-top: 1px solid #E0E0E0;
+    margin-top: 1.5rem;
+    line-height: 1.6;
+}
+.ipn-footer strong {
+    color: #555555;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ── Header institucional ──────────────────────────────────────────────────────
+# Disposición: logo ESIME | título del proyecto | logo IPN
+
+col_logo_l, col_title, col_logo_r = st.columns([1, 5, 1])
+
+with col_logo_l:
+    st.image("assets/logos/esime.png", use_container_width=True)
+
+with col_title:
+    st.markdown("""
+    <div class="ipn-header">
+        <p class="ipn-header-title">
+            Análisis y cálculo de sistemas convergentes&thinsp;–&thinsp;divergentes
+            de un turborreactor de un avión comercial, considerando ecuaciones de
+            estado y calores específicos dependientes de la altura y presión atmosférica
+        </p>
+        <p class="ipn-header-subtitle">
+            Instituto Politécnico Nacional &nbsp;·&nbsp;
+            ESIME Azcapotzalco &nbsp;·&nbsp;
+            Ingeniería Mecánica &nbsp;·&nbsp;
+            Periodo 2026-1
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col_logo_r:
+    st.image("assets/logos/ipn.png", use_container_width=True)
+
+# Línea guinda de identidad institucional
+st.markdown('<div class="ipn-barra"></div>', unsafe_allow_html=True)
+
+# ── Disclaimer técnico ────────────────────────────────────────────────────────
+# Visible siempre, antes de cualquier resultado.
+st.markdown("""
+<div class="ipn-disclaimer">
+    ⚠️&nbsp;&nbsp;<strong>Aviso académico:</strong>
+    Este software implementa un modelo isentrópico simplificado.
+    Los resultados obtenidos son <strong>aproximaciones académicas</strong> y
+    no deben utilizarse para certificación aeronáutica, diseño operacional real
+    ni toma de decisiones de seguridad.
+</div>
+""", unsafe_allow_html=True)
 
 # ── Panel lateral: parámetros de entrada ─────────────────────────────────────
 
 with st.sidebar:
+    # --- Acerca del proyecto --------------------------------------------------
+    with st.expander("📋 Acerca del proyecto", expanded=False):
+        st.markdown("""
+**Objetivo**
+
+Analizar el comportamiento termodinámico del flujo a lo largo de una tobera
+convergente-divergente de turborreactor mediante relaciones isentrópicas
+simplificadas para flujo compresible 1-D.
+
+---
+
+**Estudiantes**
+- Pérez López José Raúl
+- Escobedo Guerrero Oscar David
+
+**Institución**
+Instituto Politécnico Nacional
+
+**Escuela**
+ESIME Azcapotzalco
+
+**Carrera**
+Ingeniería Mecánica
+
+**Periodo**
+2026-1
+
+**Versión**
+v1.0 MVP Académico
+        """)
+
+    st.divider()
+
     # --- Rango de presiones ---------------------------------------------------
     # P₀ es la presión de remanso (condición aguas arriba).
     # P_salida es la presión estática en la descarga (contrapresión).
@@ -113,6 +300,30 @@ with st.sidebar:
 
     run = st.button("Calcular", type="primary", use_container_width=True)
 
+# ── Supuestos del modelo ──────────────────────────────────────────────────────
+# Siempre visible; contextualiza los resultados antes de que el usuario los lea.
+
+st.markdown("""
+<div class="ipn-supuestos">
+    <span class="ipn-supuestos-titulo">Supuestos del modelo</span>
+    <ul>
+        <li><strong>Flujo compresible ideal</strong> — relaciones isentrópicas para
+            flujo 1-D estacionario en tobera de sección variable.</li>
+        <li><strong>Modelo isentrópico simplificado</strong> — proceso adiabático y
+            sin irreversibilidades (sin fricción ni ondas de choque).</li>
+        <li><strong>Gas ideal</strong> — γ y R constantes a lo largo del análisis
+            (gas caloricamente perfecto).</li>
+        <li><strong>Sección transversal circular equivalente</strong> — el radio se
+            obtiene de R = √(A/π); aplica exclusivamente a toberas de revolución.</li>
+        <li><strong>Sin pérdidas viscosas</strong> — no se modelan efectos de capa
+            límite ni fricción con la pared.</li>
+        <li><strong>Sin transferencia de calor</strong> — proceso completamente
+            adiabático en toda la tobera.</li>
+        <li><em>Los resultados tienen fines académicos y no constituyen diseño certificable.</em></li>
+    </ul>
+</div>
+""", unsafe_allow_html=True)
+
 # ── Área principal: resultados ────────────────────────────────────────────────
 
 if run:
@@ -133,11 +344,11 @@ if run:
         # de salida donde la presión es mínima), las condiciones en la entrada
         # y el radio equivalente en la sección de salida.
         col1, col2, col3, col4, col5 = st.columns(5)
-        col1.metric("Mach máximo",             f"{df['mach_number'].max():.4f}")
-        col2.metric("Velocidad máxima [m/s]",  f"{df['velocity_m_s'].max():.2f}")
-        col3.metric("Densidad inicial [kg/m³]", f"{df['density_kg_m3'].iloc[0]:.4f}")
-        col4.metric("Área final [m²]",          f"{df['flow_area_m2'].iloc[-1]:.6f}")
-        col5.metric("Radio final [m]",          f"{df['radius_m'].iloc[-1]:.6f}")
+        col1.metric("Mach máximo",              f"{df['mach_number'].max():.4f}")
+        col2.metric("Velocidad máxima [m/s]",   f"{df['velocity_m_s'].max():.2f}")
+        col3.metric("Densidad inicial [kg/m³]",  f"{df['density_kg_m3'].iloc[0]:.4f}")
+        col4.metric("Área final [m²]",           f"{df['flow_area_m2'].iloc[-1]:.6f}")
+        col5.metric("Radio final [m]",           f"{df['radius_m'].iloc[-1]:.6f}")
 
         st.divider()
 
@@ -235,5 +446,11 @@ else:
 
 # ── Pie de página ─────────────────────────────────────────────────────────────
 
-st.divider()
-st.caption("proyecto_turboreactor · MVP · local only")
+st.markdown("""
+<div class="ipn-footer">
+    <strong>Proyecto académico</strong> desarrollado en
+    ESIME Azcapotzalco – Instituto Politécnico Nacional.
+    Uso educativo y de investigación.<br>
+    Desarrollado con Python, Streamlit, NumPy, Pandas y Plotly.
+</div>
+""", unsafe_allow_html=True)

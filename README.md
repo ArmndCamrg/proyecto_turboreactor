@@ -1,7 +1,19 @@
 # proyecto_turboreactor
 
-Calculadora local de propiedades termodinámicas para toberas de turbofán,
-basada en análisis isentrópico 1-D con número de Mach variable.
+**Análisis y cálculo de sistemas convergentes – divergentes de un turborreactor
+de un avión comercial, considerando ecuaciones de estado y calores específicos
+dependientes de la altura y presión atmosférica**
+
+Calculadora local de propiedades termodinámicas basada en análisis isentrópico
+1-D con número de Mach variable.
+
+| Campo | Valor |
+| ----- | ----- |
+| Institución | Instituto Politécnico Nacional |
+| Escuela | ESIME Azcapotzalco |
+| Carrera | Ingeniería Mecánica |
+| Periodo | 2026-1 |
+| Versión | v1.0 MVP Académico |
 
 ---
 
@@ -11,6 +23,39 @@ Proporcionar una herramienta interactiva que permita analizar el comportamiento
 termodinámico del gas a lo largo de una tobera de turbofán bajo supuestos de
 flujo isentrópico, ideal para estudios de diseño preliminar, validación académica
 y exploración paramétrica de ciclos de propulsión.
+
+---
+
+## Créditos académicos
+
+| Campo | Detalle |
+| ----- | ------- |
+| **Proyecto** | Análisis y cálculo de sistemas convergentes – divergentes de un turborreactor de un avión comercial |
+| **Institución** | Instituto Politécnico Nacional |
+| **Escuela** | ESIME Azcapotzalco |
+| **Carrera** | Ingeniería Mecánica |
+| **Periodo** | 2026-1 |
+| **Versión** | v1.0 MVP Académico |
+
+### Estudiantes
+
+| Nombre | Rol |
+| ------ | --- |
+| Pérez López José Raúl | Desarrollo y análisis |
+| Escobedo Guerrero Oscar David | Desarrollo y análisis |
+
+### Stack tecnológico del proyecto
+
+Desarrollado con **Python**, **Streamlit**, **NumPy**, **Pandas** y **Plotly**.
+
+---
+
+## Aviso técnico
+
+> ⚠️ **Este software implementa un modelo isentrópico simplificado.**
+> Los resultados obtenidos son aproximaciones académicas y **no deben
+> utilizarse para certificación aeronáutica, diseño operacional real ni
+> toma de decisiones de seguridad.**
 
 ---
 
@@ -94,20 +139,31 @@ en esa fila del resultado.
 
 ---
 
-## Supuestos del MVP
+## Supuestos del modelo
 
-1. **Flujo isentrópico** — proceso adiabático y sin irreversibilidades (sin fricción,
-   sin transferencia de calor).
-2. **Flujo 1-D** — las propiedades del gas son uniformes en cada sección transversal.
-3. **Gas caloricamente perfecto** — γ, Cp y R constantes a lo largo del análisis.
-4. **Presión de remanso P₀ constante** — no hay pérdidas de presión total aguas arriba.
-5. **Gasto másico constante** — conservación de masa en toda la tobera.
-6. **Punto de entrada en reposo** — en P = P₀ el Mach es 0; el área es físicamente
-   indefinida y se reporta como NaN en esa fila del resultado.
-7. **Cp del aire lineal** — aproximación `Cp = 1005 + 0.1 · (T − 300)` válida en
-   el rango 200–1500 K; no apta para temperaturas de disociación (> 2500 K).
-8. **Sin efectos de onda de choque** — el modelo no detecta ni corrige discontinuidades
-   por ondas de choque normales en la tobera divergente.
+1. **Flujo compresible ideal** — se aplican relaciones isentrópicas para flujo
+   1-D estacionario en una tobera de sección variable.
+2. **Modelo isentrópico simplificado** — proceso adiabático y sin irreversibilidades
+   (sin fricción ni ondas de choque).
+3. **Gas ideal** — γ, Cp y R constantes a lo largo del análisis (gas caloricamente
+   perfecto); no se modelan efectos de gas real ni disociación.
+4. **Sección transversal circular equivalente** — el radio equivalente se obtiene
+   de R = √(A/π); aplica exclusivamente a toberas de revolución.
+5. **Sin pérdidas viscosas** — no se modelan efectos de capa límite ni fricción
+   con la pared; la presión total se conserva perfectamente.
+6. **Sin transferencia de calor** — proceso completamente adiabático; T₀ se
+   conserva a lo largo de toda la tobera.
+7. **Presión de remanso P₀ constante** — no hay pérdidas de presión total aguas arriba.
+8. **Gasto másico constante** — conservación de masa en toda la tobera.
+9. **Punto de entrada en reposo** — en P = P₀ el Mach es 0; el área y el radio
+   equivalente son físicamente indefinidos y se reportan como NaN.
+10. **Cp del aire lineal** — aproximación `Cp = 1005 + 0.1 · (T − 300)` válida en
+    el rango 200–1500 K; no apta para temperaturas de disociación (> 2500 K).
+11. **Sin efectos de onda de choque** — el modelo no detecta ni corrige
+    discontinuidades por ondas de choque normales en la tobera divergente.
+
+> Los resultados tienen fines **académicos y de investigación**. No constituyen
+> diseño certificable ni deben emplearse en aplicaciones operacionales reales.
 
 ---
 
@@ -122,6 +178,8 @@ en esa fila del resultado.
 | Gráficas estáticas | [Matplotlib](https://matplotlib.org) | 3.8 |
 | Pruebas unitarias | [pytest](https://pytest.org) | 8.0 |
 | Lenguaje | Python | 3.10+ |
+
+> Véase también la sección [Créditos académicos](#créditos-académicos).
 
 ---
 
